@@ -35,7 +35,7 @@ var (
 )
 
 // Run accepts a message queue and several threshold values (time, size and count).
-// Messages are read from and accumulated into a batch. The batch will be enqueued for
+// Messages are read and accumulated into a batch. The batch will be enqueued for
 // writing to ElasticSearch when the any of the thresholds are met.
 func Run(es string, messageIncomingQueue <-chan []byte, timeout int, count int, size int) {
 	go bulkWriter(es)
@@ -48,7 +48,7 @@ func Run(es string, messageIncomingQueue <-chan []byte, timeout int, count int, 
 		// If we hit the flush timeout, enqueue the current message batch.
 		case <- flushTimeout:
 			if len(batch.body) != 0 {
-				log.Printf("Flush timeout met, flushing %d document(s)", batch.count)
+				log.Printf("Flushing %d document(s)", batch.count)
 				enqueueRequest(batch)
 			}
 		case m:= <- messageIncomingQueue:
@@ -57,7 +57,7 @@ func Run(es string, messageIncomingQueue <-chan []byte, timeout int, count int, 
 			err := json.Unmarshal(m, &parsed)
 			if err != nil {
 				// Isn't json, do this
-				fmt.Println(err)
+				log.Printf("Invalid json: %s\n", err)
 				return
 			}
 
