@@ -19,7 +19,6 @@ type Statser interface {
 type MessageBatch struct {
 	body []byte
 	count int
-	limitCount int
 	limitSize int
 }
 
@@ -37,11 +36,13 @@ var (
 // Run accepts a message queue and several threshold values (time, size and count).
 // Messages are read and accumulated into a batch. The batch will be enqueued for
 // writing to ElasticSearch when the any of the thresholds are met.
-func Run(es string, messageIncomingQueue <-chan []byte, timeout int, count int, size int) {
-	go bulkWriter(es)
+func Run(es string, messageIncomingQueue <-chan []byte, writers int, timeout int, size int) {
+	for i := 0; i < writers; i++ {
+		go bulkWriter(es)
+	}
 
 	flushTimeout := time.Tick(time.Duration(timeout) * time.Second)
-	batch := &MessageBatch{limitCount: count, limitSize: size}
+	batch := &MessageBatch{limitSize: size}
 
 	for {
 		select {
@@ -132,8 +133,8 @@ func bulkWriter(es string) {
 
 // AppendDocument generates an ElasticSearch bulk request
 // header and appends it along with a message to the current
-// batch. It also checks the batch size and batch message count
-// thresholds upon each append and will return a threshold
+// batch. It also checks if the batch size is over the configured 
+// threshold upon each append and will return a threshold
 // trigger to the caller.
 func (b *MessageBatch) AppendDocument(m []byte, t string) string {
 	headerTemplate := map[string]map[string]string{"index": {}}
@@ -147,11 +148,6 @@ func (b *MessageBatch) AppendDocument(m []byte, t string) string {
 	b.body = append(b.body, 10)
 	b.count++
 
-	if b.count >= b.limitCount {
-		count := b.count
-		b.count = 0
-		return fmt.Sprintf("Batch at count threshold, flushing %d messages", count)
-	}
 	// We check the whole batch size including the bulk
 	// request actions meta. May want to reduce this to purely metering
 	// the request data size.

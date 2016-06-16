@@ -16,6 +16,9 @@ var config struct {
 	port     string
 	queuecap int
 	elasticsearch string
+	writers int
+	flushTime int
+	flushSize int
 }
 
 var (
@@ -26,8 +29,11 @@ var (
 func init() {
 	flag.StringVar(&config.addr, "listen-addr", "localhost", "bind address")
 	flag.StringVar(&config.port, "listen-port", "6030", "bind port")
-	flag.IntVar(&config.queuecap, "queue-cap", 100, "In-flight message queue capacity")
+	flag.IntVar(&config.queuecap, "queue-cap", 10000, "In-flight message queue capacity")
 	flag.StringVar(&config.elasticsearch, "elasticsearch", "http://localhost:9200", "ElasticSearch IP")
+	flag.IntVar(&config.writers, "writers", 3, "Writers")
+	flag.IntVar(&config.flushTime, "flush-time", 30, "Flush timeout")
+	flag.IntVar(&config.flushSize, "flush-size", 10485760, "Flush size")
 	flag.Parse()
 	// Update vars that depend on flag inputs.
 	messageIncomingQueue = make(chan []byte, config.queuecap)
@@ -50,7 +56,7 @@ func main() {
 	// flush timeout, message batch count and size threshold values.
 	go elasticsearch.Run(config.elasticsearch,
 		messageIncomingQueue,
-		5, 1000, 100000)
+		config.writers, config.flushTime, config.flushSize)
 
 	runControl()
 }
