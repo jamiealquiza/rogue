@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"./outputs/elasticsearch"
+	"github.com/jamiealquiza/rogue/outputs/elasticsearch"
 )
 
 var config struct {
